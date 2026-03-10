@@ -73,6 +73,14 @@ Since the full VQA dataset is very large (~1.1M questions), we will use a **subs
 | Initial Training | 20,000-50,000 pairs | Validate that models learn |
 | Full Training | 150,000-200,000 pairs | Final evaluation and comparison |
 
+#### Data loading
+
+• **The Trap:** Downloading and extracting 25GB of thousands of individual JPEGs every Colab session wastes 30–45 minutes of compute time, and reading small files during training bottlenecks the PyTorch DataLoader — leaving your A100 GPU starving and idle.
+
+• **The Solution:** Run a one-time preprocessing script to convert your image subset into a single HDF5 (.h5) or database file instead of reading raw JPEGs during training.
+
+• **The Payoff:** A single database file is faster to read, eliminates the small-file bottleneck entirely, and survives session disconnects without re-downloading anything.
+
 ### How to Obtain the Data
 
 ```mermaid
@@ -180,7 +188,7 @@ graph TD
 
 ### Step-by-Step Implementation
 
-#### Step 1: Set Up the Environment
+#### Step 1: Set Up the Environment (Ideation purposes only)
 
 ```python
 # requirements.txt
@@ -196,7 +204,7 @@ pandas>=2.0.0
 scikit-learn>=1.2.0        # Metrics
 ```
 
-#### Step 2: Data Loading & Preprocessing
+#### Step 2: Data Loading & Preprocessing (Ideation purposes only)
 
 Build a PyTorch `Dataset` class that:
 1. Loads an image and resizes it to 224x224 pixels
@@ -222,9 +230,9 @@ class VQADataset(Dataset):
 
 **Why top-K answers?** VQA has thousands of unique answers. We treat it as a classification problem over the K most common answers (e.g., K=1000 covers ~85% of all answers).
 
-#### Step 3: Build the Encoders
+#### Step 3: Encoders
 
-**Image Encoder** -- Use a pre-trained Vision Transformer (ViT) or ResNet:
+**Image Encoder** -- Use a pre-trained Vision Transformer (ViT) or ResNet (ideation purposes only):
 
 ```python
 # Using a pre-trained ViT (recommended)
@@ -241,7 +249,7 @@ class ImageEncoder(nn.Module):
         # e.g., (32, 197, 512) for ViT-Base with 16x16 patches
 ```
 
-**Text Encoder** -- Use a pre-trained BERT (or DistilBERT for speed):
+**Text Encoder** -- Use a pre-trained BERT (or DistilBERT for speed) (ideation purposes only):
 
 ```python
 # Option 1 (default): freeze all encoder params — see "Encoder Freezing Strategy" below
@@ -294,8 +302,17 @@ With this in mind, and considering the project's Colab Pro compute budget (A100 
 
 | Modality | Recommended Encoder | Why This One |
 | :--- | :--- | :--- |
-| **Image** | **ViT-B/16** | Produces 196 spatial patch tokens — exactly the format cross-attention needs. Canonical baseline used across VQA literature, making results directly comparable to published work. At 86M params frozen, it uses minimal VRAM and leaves ample room for the fusion layers and large batch sizes. Loadable in one line via `torchvision` or HuggingFace. |
-| **Text** | **RoBERTa** *(Base)* | A strict upgrade over BERT-base — same 125M parameter count and identical API, but trained with an improved procedure that yields measurably better contextual representations. Produces per-token embeddings with a standard `[CLS]` token. VQA questions are short (< 20 tokens), so the 512-token context window is more than sufficient. |
+| **Image** | **ViT-B/16** (2020??) | Produces 196 spatial patch tokens — exactly the format cross-attention needs. Canonical baseline used across VQA literature, making results directly comparable to published work. At 86M params frozen, it uses minimal VRAM and leaves ample room for the fusion layers and large batch sizes. Loadable in one line via `torchvision` or HuggingFace. |
+| **Text** | **RoBERTa** *(Base)* (2019) | A strict upgrade over BERT-base — same 125M parameter count and identical API, but trained with an improved procedure that yields measurably better contextual representations. Produces per-token embeddings with a standard `[CLS]` token. VQA questions are short (< 20 tokens), so the 512-token context window is more than sufficient. |
+
+https://huggingface.co/sentence-transformers/clip-ViT-B-16 --> https://github.com/google-research/vision_transformer
+https://huggingface.co/docs/transformers/en/model_doc/roberta
+
+#### More Recent Options:
+modernbert (2024): https://arxiv.org/abs/2412.13663
+
+ViT-5-base (Feb 2026): https://arxiv.org/abs/2602.08071
+
 
 **Why not the others?**
 
@@ -366,7 +383,9 @@ A critical design decision is whether to **freeze** (fix) the encoder weights du
 2. **Baseline results** with frozen encoders are sufficient to compare against the other baselines.
 3. **Stretch goal**: If you have extra time, try unfreezing the last 1–2 layers of each encoder (partial fine-tuning). Colab Pro's A100 40GB can handle this — use a lower learning rate (e.g., 1e-5) for encoder layers vs. the fusion layers (1e-4).
 
-**Implementation (Option 1):**
+ - Use `torch.save()` at the end of each epoch to prevent losing training progress during Colab disconnects 
+
+**Implementation (Option 1, ideation purposes only):**
 
 ```python
 # Freeze encoders — only fusion + classifier are trained
@@ -384,7 +403,7 @@ optimizer = torch.optim.AdamW(
 
 ---
 
-#### Step 4: Implement the Asymmetric Cross-Attention (Core Component)
+#### Step 4: Implement the Asymmetric Cross-Attention (Core Component, ideation purposes only)
 
 ```python
 class CrossAttentionBlock(nn.Module):
@@ -410,7 +429,7 @@ class AsymmetricCrossModalFusion(nn.Module):
         return a_attended, b_attended
 ```
 
-#### Step 5: Build the Full Model
+#### Step 5: Build the Full Model (Ideation purposes only)
 
 ```python
 class AsymmetricVQAModel(nn.Module):
@@ -440,7 +459,7 @@ class AsymmetricVQAModel(nn.Module):
         return logits
 ```
 
-#### Step 6: Training Loop
+#### Step 6: Training Loop (Ideation purposes only)
 
 ```python
 # Training configuration
@@ -641,7 +660,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 1: Foundation
+### Phase 1: Foundation (for ideation purposes only)
 
 **Goal**: Set up the development environment and understand the building blocks.
 
@@ -657,7 +676,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 2: Baseline Models
+### Phase 2: Baseline Models (for ideation purposes only)
 
 **Goal**: Implement the symmetric baseline model and train it.
 
@@ -673,7 +692,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 3: Core Implementation
+### Phase 3: Core Implementation (for ideation purposes only)
 
 **Goal**: Implement the asymmetric cross-modal attention framework.
 
@@ -689,7 +708,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 4: Full Training & Evaluation
+### Phase 4: Full Training & Evaluation (for ideation purposes only)
 
 **Goal**: Train all models on the larger dataset and conduct thorough evaluation.
 
@@ -705,7 +724,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 5: Visualization & Analysis
+### Phase 5: Visualization & Analysis (for ideation purposes only)
 
 **Goal**: Create compelling visualizations and analyze results.
 
@@ -721,7 +740,7 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-### Phase 6: Documentation & Presentation
+### Phase 6: Documentation & Presentation (for ideation purposes only)
 
 **Goal**: Write up findings and prepare presentation.
 
@@ -737,27 +756,11 @@ Before diving into implementation, review these foundational materials:
 
 ---
 
-## 8. Required Tools, Libraries & Resources
-
-### Software
-
-| Tool | Purpose | Cost |
-|------|---------|------|
-| **Python 3.10+** | Programming language | Free |
-| **PyTorch 2.0+** | Deep learning framework | Free |
-| **HuggingFace Transformers** | Pre-trained BERT/ViT models | Free |
-| **Torchvision** | Image preprocessing, pre-trained ResNet | Free |
-| **Matplotlib / Seaborn** | Plotting and visualization | Free |
-| **Jupyter Notebook** | Interactive development | Free |
-| **Git / GitHub** | Version control | Free |
-| **TensorBoard** | Training monitoring | Free |
-| **Gradio** (optional) | Web demo interface | Free |
-
 ### Hardware
 
 | Option | Specs | Cost | Notes |
 |--------|-------|------|-------|
-| **Google Colab Pro** (primary) | A100 40GB GPU, 52GB system RAM | ~$10/month | Primary platform for all training; longer sessions (up to 24 hrs), ~100 compute units/month, priority GPU access |
+| **Google Colab Pro** (primary) | A100 40GB GPU, 52GB system RAM | Already have (free education plan) | Primary platform for all training; longer sessions (up to 24 hrs), ~100 compute units/month, priority GPU access |
 | **Google Colab (Free)** | T4 GPU, 12GB VRAM | Free | Fallback for light development/debugging only; limited to ~12 hrs/session |
 | **Kaggle Notebooks** | P100 GPU, 16GB VRAM | Free | Backup if Colab Pro compute units run low; 30 hrs/week GPU quota |
 | **Personal laptop (CPU only)** | Varies | Already owned | OK for code editing and small tests, too slow for training |
@@ -776,25 +779,7 @@ With Colab Pro's A100 40GB and frozen classic-tier encoders, training is signifi
 | Full evaluation (3 seeds × 4 models) | ~30 hrs | ~60 units | 12 training runs total |
 | **Total** | **~44 GPU hours** | **~88 units** | **Fits within ~1 month of Colab Pro** |
 
-```mermaid
-pie title GPU Hours Distribution (~44 total, A100)
-    "Full Evaluation (3 seeds × 4 models)" : 30
-    "Baseline Training (3 models)" : 6
-    "Asymmetric Model Training" : 5
-    "Development & Debugging" : 3
-```
-
-### Knowledge Prerequisites
-
-| Topic | Resources | Priority |
-|-------|-----------|----------|
-| PyTorch basics | [PyTorch 60-min blitz](https://pytorch.org/tutorials/beginner/deep_learning_60min_blitz.html) | High |
-| Neural networks fundamentals | [3Blue1Brown series](https://www.youtube.com/playlist?list=PLZHQObOWTQDNU6R1_67000Dx_ZCJB-3pi) | High |
-| Transfer learning | [HuggingFace course](https://huggingface.co/learn/nlp-course) | Medium |
-
 ---
-
- 
 
 ## 9. Potential Error Modes
 
@@ -830,7 +815,7 @@ pie title GPU Hours Distribution (~44 total, A100)
 | 8 | **Second dataset evaluation** | Additional results on MS-COCO or Hateful Memes |
 | 9 | **Video walkthrough** | 5-10 minute recorded explanation |
 
-### Code Repository Structure
+### Code Repository Structure (Ideation purposes only)
 
 ```
 asymmetric-cross-modal-attention/
@@ -869,3 +854,6 @@ asymmetric-cross-modal-attention/
 
 ---
 
+Everything under "(for ideation purposes only)" is just a high-level plan for now. It will be updated as we go.
+
+Also, if we may use T4 GPU for development, and A100 for full training, so that we don't exceed Colab limits.
