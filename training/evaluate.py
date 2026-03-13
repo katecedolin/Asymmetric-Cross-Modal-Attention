@@ -50,6 +50,7 @@ def top_k_accuracy(
             answers = batch[2]
             logits = model(images, input_ids, attention_mask)
             _, topk = logits.topk(k, dim=1)
+            topk = topk.cpu()
             correct += (topk == answers.unsqueeze(1)).any(dim=1).sum().item()
             total += answers.size(0)
     return correct / total if total else 0.0
