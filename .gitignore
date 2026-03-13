@@ -8,6 +8,8 @@ build/
 
 # Data and results
 data/images/
+data/questions/
+data/answers/
 results/checkpoints/*.pt
 results/figures/*
 !results/figures/.gitkeep
