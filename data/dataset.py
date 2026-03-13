@@ -9,7 +9,7 @@ from PIL import Image
 from torch.utils.data import Dataset
 from transformers import AutoTokenizer
 
-from .preprocess import build_answer_vocab, merge_questions_answers
+from .preprocess import build_answer_vocab, load_answers, merge_questions_answers
 
 
 class VQADataset(Dataset):
@@ -57,8 +57,8 @@ class VQADataset(Dataset):
         with open(questions_file, "r") as f:
             q_data = json.load(f)
         questions = q_data.get("questions", q_data) if isinstance(q_data, dict) else q_data
-        answers_data = json.load(open(answers_file))
-        self.samples = merge_questions_answers(questions, answers_data, answer_to_idx)
+        answers = load_answers(answers_file)
+        self.samples = merge_questions_answers(questions, answers, answer_to_idx)
 
         if subset_size is not None:
             self.samples = self.samples[:subset_size]
